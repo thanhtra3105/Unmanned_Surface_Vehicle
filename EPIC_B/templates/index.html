@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>USV Mission Planner</title>
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <h2>🚤 USV Mission Planner</h2>
+    <div id="map"></div>
+    <div class="controls">
+      <button onclick="clearWaypoints()">Clear</button>
+      <!-- <button onclick="exportMission()">Export JSON</button> -->
+      <button onclick="uploadMission()">Upload Mission</button>
+      <!-- <button onclick="armVehicle()">ARM</button> -->
+      <!-- <button onclick="disarmVehicle()">DISARM</button> -->
+      <button onclick="startMission()">Start Mission</button>
+   
+    <div id="progress-container">
+      <div id="progress-bar"></div>
+    </div>
+    
+    <!-- Google Maps API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDl7j1gjfJ-OentAm-aqDHu81p-Kv3WHos"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+  </body>
+</html>
