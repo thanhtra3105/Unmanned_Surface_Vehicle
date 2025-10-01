@@ -79,6 +79,24 @@ def send_mission_via_mavlink(master, mission):
 def home():
     return render_template("index.html")
 
+@app.route("/telemetry", methods=["GET"])
+def telemetry():
+    return render_template("test_dashboard.html")
+
+@app.route("/api/telemetry", methods=["GET"])
+def api_telemetry():
+    # Demo giả lập dữ liệu
+    telemetry = {
+        "battery": 75,
+        "speed": 2.5,
+        "heading": 90,
+        "ph": 7.2,
+        "do": 8.1,
+        "cod": 120,
+        "tss": 300
+    }
+    return jsonify({"success": True, "telemetry": telemetry})
+
 @app.route("/upload-mission", methods=["POST"])
 def upload_mission():
     data = request.get_json()
