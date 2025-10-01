@@ -64,7 +64,7 @@ def send_mission_via_mavlink(master, mission):
         )
         print(f"   ✅ Sent WP {seq+1}: lat={wp['lat']}, lon={wp['lng']}")
         time.sleep(0.5)
-
+    
     msg = master.recv_match(type='MISSION_ACK', timeout=ACK_TIMEOUT)
     if msg:
         print(f"🎉 Got final MISSION_ACK: {msg}")
@@ -85,17 +85,29 @@ def telemetry():
 
 @app.route("/api/telemetry", methods=["GET"])
 def api_telemetry():
-    # Demo giả lập dữ liệu
-    telemetry = {
+    try:
+        master = get_master()
+        msg = master.recv_match(type="NAMED_VALUE_FLOAT", blocking=True, timeout=2)
+        
+        if not msg:
+            return jsonify({"success": False, "message": "No Sensor Data"}), 500
+
+        
+        telemetry = {
         "battery": 75,
         "speed": 2.5,
         "heading": 90,
-        "ph": 7.2,
+        "ph": msg.value,
         "do": 8.1,
         "cod": 120,
         "tss": 300
-    }
-    return jsonify({"success": True, "telemetry": telemetry})
+        }
+        return jsonify({"success": True, "telemetry": telemetry})
+    
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Position failed: {e}"}), 500   
+
+    
 
 @app.route("/upload-mission", methods=["POST"])
 def upload_mission():
