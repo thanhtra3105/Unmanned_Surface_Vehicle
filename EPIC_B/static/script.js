@@ -5,7 +5,7 @@ let polyline = null;
 
 function initMap() {
     map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat: -35.363262, lng: 149.165237 },
+        center: { lat: 16.0659092, lng: 108.1609844 },
         zoom: 16,
     });
 
@@ -117,21 +117,21 @@ async function uploadMission() {
 // Gọi API điều khiển vehicle
 // =============================
 function armVehicle() {
-  fetch("http://127.0.0.1:5000/arm", { method: "POST" })
+  fetch("/arm", { method: "POST" })
     .then(res => res.json())
     .then(data => alert("🚀 ARM: " + JSON.stringify(data)))
     .catch(err => alert("❌ ARM error: " + err));
 }
 
 function disarmVehicle() {
-  fetch("http://127.0.0.1:5000/disarm", { method: "POST" })
+  fetch("/disarm", { method: "POST" })
     .then(res => res.json())
     .then(data => alert("🛑 DISARM: " + JSON.stringify(data)))
     .catch(err => alert("❌ DISARM error: " + err));
 }
 
 function startMission() {
-  fetch("http://127.0.0.1:5000/start-mission", { method: "POST" })
+  fetch("/start-mission", { method: "POST" })
     .then(res => res.json())
     .then(data => alert("▶️ Start Mission: " + JSON.stringify(data)))
     .catch(err => alert("❌ Start error: " + err));
