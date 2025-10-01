@@ -31,6 +31,19 @@ void send_heartbeat() {
   Serial.write(buf, len);
 }
 
+
+
+void send_sensor_data(char *name, float data)
+{
+  mavlink_message_t msg;
+  char buf[MAVLINK_MAX_PACKET_LEN];
+  mavlink_msg_named_value_float_pack(
+    1, 200, &msg, milis(), name, data
+  );
+  uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+  Serial.write(buf, len);
+}
+
 void send_position() {
   mavlink_message_t msg;
   uint8_t buf[MAVLINK_MAX_PACKET_LEN];
@@ -134,6 +147,7 @@ void handle_mission_item_int(const mavlink_message_t& msg) {
 
     if (item.seq == wp_count - 1) {
       send_mission_ack();
+      delay(100);
     }
   }
 }
@@ -161,6 +175,11 @@ void handle_mavlink_receive() {
       }
     }
   }
+}
+
+float read_pH()
+{
+  return 13.4;
 }
 
 // ================== MAIN ==================
@@ -191,9 +210,9 @@ void loop() {
   {
     send_heartbeat();
     send_position();
+    send_sensor_data("pH", readpH());
     handle_mavlink_receive();
     pre_time = millis();
   }
-  // send_heartbeat();
   
 }
