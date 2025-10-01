@@ -5,7 +5,7 @@ let polyline = null;
 
 function initMap() {
     map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat: 16.067827, lng: 108.163352 },
+        center: { lat: 16.0659092, lng: 108.1609844 },
         zoom: 16,
     });
 
