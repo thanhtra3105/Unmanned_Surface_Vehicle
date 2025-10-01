@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>USV Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+  <!-- Header -->
+  <div class="bg-blue-700 text-white p-4 shadow flex justify-between items-center">
+    <!-- Tiêu đề -->
+    <h1 class="text-2xl font-bold flex items-center">
+      🚤 USV Telemetry Dashboard
+    </h1>
+
+    <!-- Nút về Home ở góc phải -->
+    <a href="/" 
+      class="flex items-center bg-white text-blue-700 font-semibold px-4 py-2 rounded-lg shadow hover:bg-gray-100 transition">
+      🏠 Home
+    </a>
+  </div>
+
+  
+
+  <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+    <!-- Card: Battery -->
+    <div class="bg-white rounded-xl shadow p-4">
+      <h2 class="text-lg font-semibold mb-2">🔋 Battery</h2>
+      <canvas id="batteryChart"></canvas>
+    </div>
+
+    <!-- Card: Speed Gauge -->
+    <div class="bg-white rounded-xl shadow p-4">
+      <h2 class="text-lg font-semibold mb-2">⚡ Speed (m/s)</h2>
+      <canvas id="speedGauge"></canvas>
+    </div>
+
+    <!-- Card: Heading -->
+    <div class="bg-white rounded-xl shadow p-4">
+      <h2 class="text-lg font-semibold mb-2">🧭 Heading</h2>
+      <div id="heading" class="text-3xl font-bold text-green-600">--°</div>
+    </div>
+
+    <!-- Card: pH -->
+    <div class="bg-white rounded-xl shadow p-4">
+      <h2 class="text-lg font-semibold mb-2">🌊 pH</h2>
+      <canvas id="phChart"></canvas>
+    </div>
+
+    <!-- Card: DO -->
+    <div class="bg-white rounded-xl shadow p-4">
+      <h2 class="text-lg font-semibold mb-2">💧 Dissolved Oxygen (mg/L)</h2>
+      <canvas id="doChart"></canvas>
+    </div>
+
+    <!-- Card: COD -->
+    <div class="bg-white rounded-xl shadow p-4">
+      <h2 class="text-lg font-semibold mb-2">🧪 COD (mg/L)</h2>
+      <canvas id="codChart"></canvas>
+    </div>
+
+    <!-- Card: TSS -->
+    <div class="bg-white rounded-xl shadow p-4">
+      <h2 class="text-lg font-semibold mb-2">⚙️ TSS (mg/L)</h2>
+      <canvas id="tssChart"></canvas>
+    </div>
+
+    <!-- Card: Telemetry history -->
+    <div class="bg-white rounded-xl shadow p-4 col-span-1 md:col-span-2 lg:col-span-3">
+      <h2 class="text-lg font-semibold mb-2">📈 Telemetry History</h2>
+      <canvas id="historyChart" height="80"></canvas>
+    </div>
+  </div>
+
+  <script>
+    // ===== CHART CONFIG =====
+    const batteryChart = new Chart(document.getElementById("batteryChart"), {
+      type: 'doughnut',
+      data: { labels: ["Battery", "Empty"], datasets: [{ data: [0, 100], backgroundColor: ["#3b82f6", "#e5e7eb"] }] },
+      options: { cutout: "70%" }
+    });
+
+    // Gauge cho speed
+    const speedGauge = new Chart(document.getElementById("speedGauge"), {
+      type: 'doughnut',
+      data: { datasets: [{ data: [0, 10], backgroundColor: ["#3b82f6", "#e5e7eb"], borderWidth: 0 }] },
+      options: {
+        rotation: -90,
+        circumference: 180,
+        cutout: "70%",
+        plugins: { legend: { display: false } }
+      }
+    });
+
+    const phChart = new Chart(document.getElementById("phChart"), {
+      type: 'bar',
+      data: { labels: ["pH"], datasets: [{ data: [0], backgroundColor: "#10b981" }] },
+      options: { indexAxis: 'y', scales: { x: { min: 0, max: 14 } } }
+    });
+
+    const doChart = new Chart(document.getElementById("doChart"), {
+      type: 'bar',
+      data: { labels: ["DO"], datasets: [{ data: [0], backgroundColor: "#06b6d4" }] },
+      options: { indexAxis: 'y', scales: { x: { min: 0, max: 20 } } }
+    });
+
+    const codChart = new Chart(document.getElementById("codChart"), {
+      type: 'bar',
+      data: { labels: ["COD"], datasets: [{ data: [0], backgroundColor: "#f97316" }] },
+      options: { indexAxis: 'y', scales: { x: { min: 0, max: 500 } } }
+    });
+
+    const tssChart = new Chart(document.getElementById("tssChart"), {
+      type: 'bar',
+      data: { labels: ["TSS"], datasets: [{ data: [0], backgroundColor: "#8b5cf6" }] },
+      options: { indexAxis: 'y', scales: { x: { min: 0, max: 1000 } } }
+    });
+
+    const historyChart = new Chart(document.getElementById("historyChart"), {
+      type: 'line',
+      data: { labels: [], datasets: [
+        { label: "Speed", data: [], borderColor: "#3b82f6", fill: false },
+        { label: "Battery", data: [], borderColor: "#f59e0b", fill: false },
+        { label: "DO", data: [], borderColor: "#06b6d4", fill: false },
+        { label: "COD", data: [], borderColor: "#f97316", fill: false },
+        { label: "TSS", data: [], borderColor: "#8b5cf6", fill: false }
+      ]},
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // ===== FETCH DATA =====
+    async function fetchTelemetry() {
+      try {
+        let res = await fetch("/api/telemetry");
+        let data = await res.json();
+        if (data.success) {
+          let t = data.telemetry;
+
+          // Update heading
+          document.getElementById("heading").innerText = t.heading + "°";
+
+          // Update battery
+          batteryChart.data.datasets[0].data = [t.battery, 100 - t.battery];
+          batteryChart.update();
+
+          // Update speed gauge
+          speedGauge.data.datasets[0].data = [t.speed, 10 - t.speed];
+          speedGauge.update();
+
+          // Update sensors
+          phChart.data.datasets[0].data = [t.ph]; phChart.update();
+          doChart.data.datasets[0].data = [t.do]; doChart.update();
+          codChart.data.datasets[0].data = [t.cod]; codChart.update();
+          tssChart.data.datasets[0].data = [t.tss]; tssChart.update();
+
+          // History
+          let ts = new Date().toLocaleTimeString();
+          historyChart.data.labels.push(ts);
+          historyChart.data.datasets[0].data.push(t.speed);
+          historyChart.data.datasets[1].data.push(t.battery);
+          historyChart.data.datasets[2].data.push(t.do);
+          historyChart.data.datasets[3].data.push(t.cod);
+          historyChart.data.datasets[4].data.push(t.tss);
+
+          if (historyChart.data.labels.length > 10) {
+            historyChart.data.labels.shift();
+            historyChart.data.datasets.forEach(ds => ds.data.shift());
+          }
+          historyChart.update();
+        }
+      } catch (e) {
+        console.error("Fetch telemetry failed:", e);
+      }
+    }
+    setInterval(fetchTelemetry, 2000);
+    fetchTelemetry();
+  </script>
+</body>
+</html>
