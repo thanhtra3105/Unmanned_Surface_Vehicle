@@ -7,6 +7,7 @@ function initMap() {
     map = new google.maps.Map(document.getElementById("map"), {
         center: { lat: 16.0659092, lng: 108.1609844 },
         zoom: 16,
+        gestureHandling: "greedy" // Cho phép zoom bằng scroll luôn
     });
 
     map.addListener("click", (event) => {
