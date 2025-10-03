@@ -65,6 +65,7 @@ def send_mission_via_mavlink(master, mission):
         print(f"   ✅ Sent WP {seq+1}: lat={wp['lat']}, lon={wp['lng']}")
         time.sleep(0.5)
     
+    time.sleep(1)
     msg = master.recv_match(type='MISSION_ACK', timeout=ACK_TIMEOUT)
     if msg:
         print(f"🎉 Got final MISSION_ACK: {msg}")
@@ -83,8 +84,14 @@ def home():
 def telemetry():
     return render_template("test_dashboard.html")
 
+ph = None
+do = None
+cod = None
+tss = None
+
 @app.route("/api/telemetry", methods=["GET"])
 def api_telemetry():
+    global ph, do, cod, tss
     try:
         master = get_master()
         msg = master.recv_match(type="NAMED_VALUE_FLOAT", blocking=True, timeout=2)
@@ -92,16 +99,24 @@ def api_telemetry():
         if not msg:
             return jsonify({"success": False, "message": "No Sensor Data"}), 500
 
-        
         telemetry = {
         "battery": 75,
         "speed": 2.5,
         "heading": 90,
-        "ph": msg.value,
-        "do": 8.1,
-        "cod": 120,
-        "tss": 300
+        "ph": ph,
+        "do": do,
+        "cod": cod,
+        "tss": tss
         }
+        if msg.name == "pH":
+            ph = msg.value
+        elif msg.name == "do":
+            do = msg.value
+        elif msg.name == "cod":
+            cod = msg.value
+        elif msg.name == "tss":
+            tss = msg.value
+        
         return jsonify({"success": True, "telemetry": telemetry})
     
     except Exception as e:

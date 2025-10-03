@@ -36,9 +36,9 @@ void send_heartbeat() {
 void send_sensor_data(char *name, float data)
 {
   mavlink_message_t msg;
-  char buf[MAVLINK_MAX_PACKET_LEN];
+  uint8_t buf[MAVLINK_MAX_PACKET_LEN];
   mavlink_msg_named_value_float_pack(
-    1, 200, &msg, milis(), name, data
+    1, 200, &msg, millis(), name, data
   );
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
   Serial.write(buf, len);
@@ -210,7 +210,8 @@ void loop() {
   {
     send_heartbeat();
     send_position();
-    send_sensor_data("pH", readpH());
+    send_sensor_data("pH", read_pH());
+    send_sensor_data("do", 8.6);
     handle_mavlink_receive();
     pre_time = millis();
   }
