@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>USV Manual Control</title>
+  <!-- Socket.IO client -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#fff; --text:#111; --muted:#d6d6d6; --blue:#1976d2; --green:#43a047; --red:#e53935;
+    }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;}
+    .wrap{max-width:980px;margin:8px auto;padding:12px;}
+    h1{text-align:center;margin:6px 0 12px 0;font-size:20px;}
+    .joysticks{display:flex;justify-content:center;gap:30px;flex-wrap:wrap;margin-bottom:14px;}
+    .joystick{
+      width:170px;height:170px;border-radius:50%;background:#f7fbff;border:2px solid #e1e8f0;
+      position:relative;touch-action:none;box-shadow:0 6px 14px rgba(0,0,0,0.06);user-select:none;
+    }
+    .joystick.disabled{opacity:0.45;pointer-events:none;}
+    .knob{
+      width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 30% 30%, #66b9f1, #0277bd);
+      position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);touch-action:none;box-shadow:0 8px 18px rgba(0,0,0,0.14);
+    }
+    .center-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:13px;color:#444;pointer-events:none}
+    .controls {display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:12px}
+    .slider-row{width:88%;max-width:520px;text-align:center}
+    input[type=range]{width:100%}
+    .buttons-row{display:flex;gap:12px;justify-content:center;margin:6px 0;flex-wrap:wrap}
+    .btn{padding:10px 16px;border-radius:8px;border:none;background:var(--muted);color:#000;font-weight:600;cursor:pointer;min-width:140px;box-shadow:0 2px 6px rgba(0,0,0,0.06)}
+    .btn.green{background:var(--green);color:#fff}
+    .btn.red{background:var(--red);color:#fff}
+    .status{margin-top:6px;text-align:center;font-weight:700;color:var(--red);display:none}
+    @media (max-width:640px){
+      .joystick{width:130px;height:130px}
+      .knob{width:44px;height:44px}
+      .btn{min-width:120px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>USV Manual Control</h1>
+
+    <div class="joysticks" id="joysticks"></div>
+
+    <div class="controls">
+      <div class="slider-row">
+        <label>Base Speed: <span id="speedLabel">50</span>%</label>
+        <input id="speedSlider" type="range" min="0" max="100" value="50">
+      </div>
+
+      <div class="buttons-row">
+        <button id="toggleBtn" class="btn">Disable Control</button>
+        <button id="killBtn" class="btn">Kill Switch</button>
+      </div>
+
+      <div id="killMsg" class="status">Kill switch active</div>
+    </div>
+  </div>
+
+<script>
+/* Kết nối tới backend Flask */
+const socket = io("http://127.0.0.1:5000", { transports: ["websocket"] });
+
+/* state */
+let controlEnabled = false;
+let killActive = false;
+let baseSpeed = 0.5;
+let lastThrottle = 0, lastSteering = 0;
+
+/* refs */
+const joysticksDiv = document.getElementById('joysticks');
+const speedSlider = document.getElementById('speedSlider');
+const speedLabel = document.getElementById('speedLabel');
+const toggleBtn = document.getElementById('toggleBtn');
+const killBtn = document.getElementById('killBtn');
+const killMsg = document.getElementById('killMsg');
+
+/* init */
+speedLabel.textContent = speedSlider.value;
+baseSpeed = Number(speedSlider.value)/100;
+renderTwoJoysticks();
+updateToggleUI();
+updateKillUI();
+updateJoystickLock();
+
+/* socket debug */
+socket.on('connect', ()=> console.log('socket connected'));
+socket.on('disconnect', ()=> console.log('socket disconnected'));
+
+/* slider */
+speedSlider.addEventListener('input', (e)=>{
+  baseSpeed = Number(e.target.value)/100;
+  speedLabel.textContent = e.target.value;
+});
+
+/* toggle control */
+toggleBtn.addEventListener('click', ()=>{
+  if(killActive){ alert('Không thể enable khi Kill Switch active. Tắt Kill trước.'); return; }
+  controlEnabled = !controlEnabled;
+  socket.emit('toggle_control', { enabled: controlEnabled });
+  updateToggleUI();
+  updateJoystickLock();
+});
+function updateToggleUI(){
+  if(controlEnabled){ toggleBtn.textContent = 'Enable Control'; toggleBtn.classList.add('green'); }
+  else { toggleBtn.textContent = 'Disable Control'; toggleBtn.classList.remove('green'); }
+}
+
+/* kill */
+killBtn.addEventListener('click', ()=>{
+  killActive = !killActive;
+  if(killActive){
+    socket.emit('kill', {});
+    controlEnabled = false;
+    socket.emit('toggle_control', { enabled: false });
+  } else {
+    socket.emit('unkill', {});
+    controlEnabled = true;
+    socket.emit('toggle_control', { enabled: true });
+  }
+  updateKillUI();
+  updateToggleUI();
+  updateJoystickLock();
+});
+function updateKillUI(){
+  if(killActive){ killBtn.textContent = 'Kill Active'; killBtn.classList.add('red'); killMsg.style.display = 'block'; }
+  else { killBtn.textContent = 'Kill Switch'; killBtn.classList.remove('red'); killMsg.style.display = 'none'; }
+}
+
+/* joystick functions */
+function updateJoystickLock(){
+  document.querySelectorAll('.joystick').forEach(el=>{
+    if(!controlEnabled || killActive) el.classList.add('disabled'); else el.classList.remove('disabled');
+  });
+}
+
+function renderTwoJoysticks(){
+  joysticksDiv.innerHTML = '';
+  joysticksDiv.appendChild(createJoystick('throttle'));
+  joysticksDiv.appendChild(createJoystick('steering'));
+  updateJoystickLock();
+}
+
+function createJoystick(type){
+  const box = document.createElement('div');
+  box.className = 'joystick';
+  box.id = 'joy_' + type;
+
+  const label = document.createElement('div');
+  label.className = 'center-label';
+  label.innerText = type === 'throttle' ? 'Throttle' : 'Steering';
+  box.appendChild(label);
+
+  const knob = document.createElement('div');
+  knob.className = 'knob';
+  box.appendChild(knob);
+
+  let dragging = false;
+  let pid = null;
+
+  knob.addEventListener('pointerdown', ev => {
+    if(!controlEnabled || killActive) return;
+    ev.preventDefault();
+    dragging = true;
+    pid = ev.pointerId;
+    try{ knob.setPointerCapture(pid); } catch(e) {}
+  });
+
+  knob.addEventListener('pointerup', ev => {
+    if(ev.pointerId !== pid) return;
+    dragging = false;
+    try{ knob.releasePointerCapture(pid); } catch(e) {}
+    pid = null;
+    knob.style.left = '50%'; knob.style.top = '50%';
+    if(type === 'throttle') sendDual(0, null); else sendDual(null, 0);
+  });
+
+  knob.addEventListener('pointermove', ev => {
+    if(!dragging || ev.pointerId !== pid) return;
+    const rect = box.getBoundingClientRect();
+    const cx = rect.width/2, cy = rect.height/2;
+    let x = ev.clientX - rect.left - cx;
+    let y = ev.clientY - rect.top - cy;
+    const maxR = Math.min(cx, cy) - 28;
+    const dist = Math.sqrt(x*x + y*y);
+    const clampFactor = dist > maxR ? maxR/dist : 1;
+    x *= clampFactor; y *= clampFactor;
+
+    knob.style.left = (50 + (x/cx)*50) + '%';
+    knob.style.top  = (50 + (y/cy)*50) + '%';
+
+    if(type === 'throttle'){ 
+      const normY = -y / maxR;
+      const throttleVal = clamp(normY * baseSpeed, -1, 1);
+      sendDual(throttleVal, null);
+    } else {
+      const normX = x / maxR;
+      const steerVal = clamp(normX * baseSpeed, -1, 1);
+      sendDual(null, steerVal);
+    }
+  });
+
+  knob.addEventListener('pointercancel', ()=> {
+    dragging = false;
+    if(pid){ try{ knob.releasePointerCapture(pid); } catch(e){} pid = null; }
+    knob.style.left = '50%'; knob.style.top = '50%';
+  });
+
+  return box;
+}
+
+/* send normalized values to backend */
+function sendDual(throttleVal, steeringVal){
+  if(killActive || !controlEnabled) return;
+  if(throttleVal !== null && throttleVal !== undefined) lastThrottle = throttleVal;
+  if(steeringVal !== null && steeringVal !== undefined) lastSteering = steeringVal;
+  socket.emit('dual_cmd', { left: lastThrottle, right: lastSteering });
+}
+
+/* helper */
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+</script>
+</body>
+</html>
