@@ -1,0 +1,5 @@
+{% autoescape off %}
+Welcome to GCS Website
+Please click to the link below to confirm your registration:
+https://{{domain}}{% url 'activate' uidb64=uid token=token %}
+{% endautoescape %}
