@@ -87,7 +87,7 @@ def home():
 
 @app.route("/telemetry", methods=["GET"])
 def telemetry():
-    return render_template("test_dashboard.html")
+    return render_template("test.html")
 
 # ----------------Stream video ------------
 
