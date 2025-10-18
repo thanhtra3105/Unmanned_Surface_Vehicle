@@ -87,7 +87,7 @@ def home():
 
 @app.route("/telemetry", methods=["GET"])
 def telemetry():
-    return render_template("test.html")
+    return render_template("dashboard.html")
 
 # ----------------Stream video ------------
 
@@ -304,7 +304,7 @@ def vehicle_position():
 # Main
 # =============================
 if __name__ == "__main__":
-    ngrok.kill()
-    url = ngrok.connect(5000)
-    print(url)
+    # ngrok.kill()
+    # url = ngrok.connect(5000)
+    # print(url)
     app.run(host="0.0.0.0", port=5000, debug=False)

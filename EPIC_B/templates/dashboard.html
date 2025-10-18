@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Water Quality Dashboard{% endblock %}
+{% block head_extra %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+{% endblock %}
+
+{% block main_content %}
+<main class="main-content">
+    <div class="dashboard-header">
+        <h1>Water Quality Monitoring</h1>
+        <p>Real-time monitoring of autonomous water quality vessel</p>
+    </div>
+
+    <section class="dashboard-grid">
+
+        <div class="card card-center card-span-1-5">
+            <div class="card-title">Battery Level</div>
+            <div class="center-content">
+                <div class="gauge-display">
+                    <span class="value" id="battery-value">--</span>
+                    <span class="unit">%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-center card-span-1-5">
+            <div class="card-title">Vessel Speed</div>
+            <div class="center-content">
+                <div class="speed-display">
+                    <span class="value" id="speed-value">--</span>
+                    <span class="unit">km/h</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card parameter-card">
+            <div class="card-title-line">
+                <div class="card-title">pH Level</div>
+                <i class="icon-ph fa-solid fa-leaf"></i>
+            </div>
+            <div class="parameter-value">--</div> 
+            <div class="parameter-change">--</div> 
+        </div>
+
+        <div class="card parameter-card">
+            <div class="card-title-line">
+                <div class="card-title">Dissolved Oxygen</div>
+                <i class="icon-do fa-solid fa-stream"></i>
+            </div>
+            <div class="parameter-value">--<span class="unit-small">mg/L</span></div>
+            <div class="parameter-change">--</div>
+        </div>
+
+        <div class="card parameter-card">
+            <div class="card-title-line">
+                <div class="card-title">COD</div>
+                <i class="icon-cod fa-solid fa-box"></i>
+            </div>
+            <div class="parameter-value">--<span class="unit-small">mg/L</span></div>
+            <div class="parameter-change">--</div>
+        </div>
+
+        <div class="card parameter-card">
+            <div class="card-title-line">
+                <div class="card-title">TSS</div>
+                <i class="icon-tss fa-solid fa-wave-square"></i>
+            </div>
+            <div class="parameter-value">--<span class="unit-small">mg/L</span></div>
+            <div class="parameter-change">--</div>
+        </div>
+
+        <div class="card history-card card-span-3">
+            <div class="card-title">Water Quality History</div>
+            <p class="subtitle">24-hour monitoring data</p>
+            <div class="chart-container">
+                <div class="chart-y-labels" style="display: none;"> 
+                    <span>140</span>
+                    <span>105</span>
+                    <span>70</span>
+                    <span>35</span>
+                    <span>0</span>
+                </div>
+                <canvas id="qualityHistoryChart" style="display: none;"></canvas>
+
+                <div class="chart-parameter-labels" style="display: none;">
+                    <span>COD</span>
+                    <span>DO</span>
+                    <span>TSS</span>
+                    <span>pH</span>
+                </div>
+                <div class="chart-x-labels" style="display: none;">
+                    <span>00:00</span>
+                    <span>04:00</span>
+                    <span>08:00</span>
+                    <span>12:00</span>
+                    <span>16:00</span>
+                    <span>20:00</span>
+                    <span>24:00</span>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block body_extra_script %}
+<script>
+    // Các biến toàn cục cho các biểu đồ cần được giữ lại
+    let qualityHistoryChart;
+
+    // =================================================================
+    // 1. KHỞI TẠO BIỂU ĐỒ (Chỉ giữ lại Biểu đồ Lịch sử Chất lượng Nước)
+    // =================================================================
+
+    function initializeCharts() {
+        // Khởi tạo Biểu đồ Lịch sử Chất lượng Nước
+        const ctx = document.getElementById("qualityHistoryChart").getContext('2d');
+        qualityHistoryChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                // Nhãn và Dữ liệu ban đầu là rỗng
+                labels: [], datasets: [
+                    { label: "pH", data: [], borderColor: "#8bc34a", fill: false, yAxisID: 'yPH', tension: 0.2 },
+                    { label: "DO (mg/L)", data: [], borderColor: "#4fc3f7", fill: false, yAxisID: 'yDO', tension: 0.2 },
+                    { label: "COD (mg/L)", data: [], borderColor: "#ff9800", fill: false, yAxisID: 'yCOD_TSS', tension: 0.2 },
+                    { label: "TSS (mg/L)", data: [], borderColor: "#e91e63", fill: false, yAxisID: 'yCOD_TSS', tension: 0.2 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'Time' } },
+
+                    // Trục Y cho pH (Bên trái)
+                    yPH: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        min: 6.5, 
+                        max: 8.5,
+                        title: { display: true, text: 'pH' }
+                    },
+                    // Trục Y cho DO (Bên phải, ẩn grid)
+                    yDO: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        min: 0,
+                        max: 15,
+                        grid: { drawOnChartArea: false },
+                        title: { display: true, text: 'DO (mg/L)' }
+                    },
+                    // Trục Y dùng chung cho COD/TSS (Ẩn hoàn toàn)
+                    yCOD_TSS: {
+                        type: 'linear',
+                        display: false, 
+                        position: 'right',
+                        min: 0,
+                        max: 150, 
+                        grid: { drawOnChartArea: false }
+                    }
+                }
+            }
+        });
+        
+        // Hiển thị canvas và ẩn các nhãn Y/X thủ công sau khi Chart.js đã khởi tạo
+        document.getElementById("qualityHistoryChart").style.display = 'block';
+        // Các style display:none cho các nhãn thủ công đã được thêm vào HTML để ẩn chúng
+    }
+
+    // =================================================================
+    // 2. CẬP NHẬT GIAO DIỆN HTML (Cards)
+    // =================================================================
+
+    function updateCard(title, value, unit, change, status) {
+        // Tìm thẻ dựa trên tiêu đề
+        const cardElement = Array.from(document.querySelectorAll('.parameter-card .card-title'))
+                                .find(el => el.textContent.trim() === title)?.closest('.parameter-card');
+
+        if (cardElement) {
+            // Cập nhật giá trị chính
+            const valueEl = cardElement.querySelector('.parameter-value');
+            valueEl.innerHTML = `${value}${unit ? `<span class="unit-small">${unit}</span>` : ''}`;
+
+            // Cập nhật sự thay đổi
+            const changeEl = cardElement.querySelector('.parameter-change');
+            if (changeEl) {
+                // Định dạng dấu '+'
+                const formattedChange = (change > 0 ? '+' : '') + change;
+                changeEl.textContent = formattedChange;
+
+                // Cập nhật màu sắc
+                changeEl.classList.remove('positive', 'negative');
+                if (status === 'positive') {
+                    changeEl.classList.add('positive');
+                } else if (status === 'negative') {
+                    changeEl.classList.add('negative');
+                }
+            }
+        }
+    }
+
+    // =================================================================
+    // 3. FETCH DATA VÀ CẬP NHẬT
+    // =================================================================
+
+    async function fetchTelemetry() {
+        let data = {};
+        try {
+            // *** THAY THẾ BẰNG ENDPOINT API THỰC TẾ CỦA BẠN ***
+            let res = await fetch("/api/telemetry");
+            data = await res.json();
+        } catch (e) {
+            console.warn("Fetch telemetry failed, using dummy data:", e);
+        }
+
+        if (data.success && data.telemetry) {
+            let t = data.telemetry;
+
+            // A. Cập nhật Battery & Speed
+            document.querySelector('#battery-value').textContent = t.battery;
+            document.querySelector('#speed-value').textContent = t.speed;
+
+            // B. Cập nhật Water Quality Parameter Cards
+            updateCard('pH Level', t.ph, null, t.ph_change, t.ph_change >= 0 ? 'positive' : 'negative');
+            updateCard('Dissolved Oxygen', t.do, 'mg/L', t.do_change, t.do_change >= 0 ? 'positive' : 'negative');
+            updateCard('COD', t.cod, 'mg/L', t.cod_change, t.cod_change >= 0 ? 'positive' : 'negative');
+            updateCard('TSS', t.tss, 'mg/L', t.tss_change, t.tss_change >= 0 ? 'positive' : 'negative');
+            // C. Cập nhật Biểu đồ Lịch sử (Chart.js)
+            let ts = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+            qualityHistoryChart.data.labels.push(ts);
+            qualityHistoryChart.data.datasets[0].data.push(t.ph); 
+            qualityHistoryChart.data.datasets[1].data.push(t.do); 
+            qualityHistoryChart.data.datasets[2].data.push(t.cod); 
+            qualityHistoryChart.data.datasets[3].data.push(t.tss); 
+
+            const MAX_POINTS = 20; 
+            if (qualityHistoryChart.data.labels.length > MAX_POINTS) {
+                qualityHistoryChart.data.labels.shift();
+                qualityHistoryChart.data.datasets.forEach(ds => ds.data.shift());
+            }
+
+            qualityHistoryChart.update();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        initializeCharts();
+        fetchTelemetry();
+        setInterval(fetchTelemetry, 5000); // Fetch data mỗi 5 giây
+    });
+</script>
+{% endblock %}
