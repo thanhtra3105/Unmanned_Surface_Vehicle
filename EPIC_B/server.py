@@ -1,7 +1,11 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response
 from pymavlink import mavutil
 import os, time
 from flask_cors import CORS
+from pyngrok import ngrok
+
+from picamera2 import Picamera2
+import cv2
 
 app = Flask(__name__)
 CORS(app)
@@ -14,6 +18,8 @@ VEHICLE_BAUD = 57600
 ACK_TIMEOUT = 10
 
 master = None
+
+
 
 # =============================
 # Hàm kết nối MAVLink (giữ 1 kết nối global)
@@ -64,7 +70,7 @@ def send_mission_via_mavlink(master, mission):
         )
         print(f"   ✅ Sent WP {seq+1}: lat={wp['lat']}, lon={wp['lng']}")
         time.sleep(0.5)
-    
+    time.sleep(1)
     msg = master.recv_match(type='MISSION_ACK', timeout=ACK_TIMEOUT)
     if msg:
         print(f"🎉 Got final MISSION_ACK: {msg}")
@@ -83,8 +89,63 @@ def home():
 def telemetry():
     return render_template("test_dashboard.html")
 
+# ----------------Stream video ------------
+
+def gen_frames():
+    # global frame_count, curent_time, prev_time
+    try:
+        
+        global camera
+        camera.close()
+    except Exception:
+        pass
+    # Khởi tạo camera
+    camera = Picamera2()
+    camera.configure(camera.create_preview_configuration(main={"size": (640, 480)}))
+    camera.start()
+    frame_count = 0
+    prev_time = time.time()
+    fps = 1
+    while True:
+        frame = camera.capture_array()
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        # --- Tính FPS mỗi 1 giây ---
+        frame_count += 1
+        current_time = time.time()
+        elapsed = current_time - prev_time
+        if elapsed >= 1.0:
+            fps = frame_count / elapsed
+            frame_count = 0
+            prev_time = current_time
+
+        # --- Vẽ FPS lên khung hình ---
+        cv2.putText(frame, f"FPS: {fps:.2f}", (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+        _, buffer = cv2.imencode('.jpg', frame)
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+
+@app.route('/video_feed')
+def video_feed():
+    return Response(gen_frames(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+@app.route("/stream", methods=["GET"])
+def stream():
+    return render_template("stream.html")
+
+sensor_data = {
+    "ph" : None,
+    "do" : None,
+    "cod" : None,
+    "tss" : None
+}
+
 @app.route("/api/telemetry", methods=["GET"])
 def api_telemetry():
+    global ph, do, cod, tss
     try:
         master = get_master()
         msg = master.recv_match(type="NAMED_VALUE_FLOAT", blocking=True, timeout=2)
@@ -92,18 +153,27 @@ def api_telemetry():
         if not msg:
             return jsonify({"success": False, "message": "No Sensor Data"}), 500
 
-        
+        if msg.name == "pH":
+            sensor_data["ph"] = msg.value
+        elif msg.name == "do":
+            sensor_data["do"] = msg.value
+        elif msg.name == "cod":
+            sensor_data["cod"] = msg.value
+        elif msg.name == "tss":
+            sensor_data["tss"] = msg.value
+
         telemetry = {
         "battery": 75,
         "speed": 2.5,
         "heading": 90,
-        "ph": msg.value,
-        "do": 8.1,
-        "cod": 120,
-        "tss": 300
+        "ph": sensor_data["ph"],
+        "do": sensor_data["do"],
+        "cod": sensor_data["cod"],
+        "tss": sensor_data["tss"]
         }
+        
+
         return jsonify({"success": True, "telemetry": telemetry})
-    
     except Exception as e:
         return jsonify({"success": False, "message": f"Position failed: {e}"}), 500   
 
@@ -234,4 +304,7 @@ def vehicle_position():
 # Main
 # =============================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    ngrok.kill()
+    url = ngrok.connect(5000)
+    print(url)
+    app.run(host="0.0.0.0", port=5000, debug=False)

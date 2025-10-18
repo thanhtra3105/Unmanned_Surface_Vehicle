@@ -1,7 +1,7 @@
 from picamera2 import Picamera2
 from flask import Flask, Response
 import cv2
-
+from pyngrok import ngrok
 app = Flask(__name__)
 
 # Khởi tạo camera
@@ -27,4 +27,6 @@ def index():
     return "<h1>📷 Raspberry Pi Camera Stream</h1><img src='/video_feed'>"
 
 if __name__ == '__main__':
+    url = ngrok.connect(5000)
+    print(f"url:{url}")
     app.run(host='0.0.0.0', port=5000, debug=False)

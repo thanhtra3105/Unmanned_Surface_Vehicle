@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>USV Video Stream</title>
+  <style>
+    body {
+      background-color: #f3f4f6;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    img {
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      width: 640px;
+      height: 480px;
+      object-fit: cover;
+    }
+
+    a {
+      margin-top: 20px;
+      display: inline-block;
+      text-decoration: none;
+      background-color: white;
+      color: #1d4ed8;
+      font-weight: 600;
+      padding: 10px 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      transition: 0.2s;
+    }
+
+    a:hover {
+      background-color: #e5e7eb;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>🚤 Live Video Stream</h1>
+  <img src="/video_feed" alt="USV Camera Stream">
+  <a href="/">🏠 Home</a>
+
+  <script>
+    // Khi rời trang, ngắt kết nối video (đỡ chiếm tài nguyên)
+    window.addEventListener("beforeunload", () => {
+      const img = document.querySelector("img");
+      img.src = "";
+    });
+  </script>
+</body>
+</html>
